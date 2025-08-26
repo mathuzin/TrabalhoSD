@@ -29,17 +29,18 @@ public class CoordenadorServidor {
         try {
             serverSocket = new ServerSocket(porta);
             System.out.println("Coordenador iniciado na porta " + porta + ". Aguardando conexões...");
-
             ScheduledExecutorService scheduler = Executors.newScheduledThreadPool(1);
-            scheduler.schedule(() -> {
+            scheduler.scheduleAtFixedRate(() -> {
                 System.out.println("\nCoordenador encerrado por tempo de vida expirado.");
+                // Limpar a fila de requisições
+                filaDeRequisicoes.clear();
                 try {
                     serverSocket.close();
                 } catch (IOException e) {
+                    e.printStackTrace();
                 }
                 System.exit(0);
-            }, 60, TimeUnit.SECONDS);
-
+            }, 60, 60, TimeUnit.SECONDS);
             while (true) {
                 Socket clienteSocket = serverSocket.accept();
                 new Thread(new GerenciadorDeRequisicoes(clienteSocket)).start();
@@ -53,7 +54,7 @@ public class CoordenadorServidor {
         private final Socket socket;
         private final String clienteId;
         private final PrintWriter out;
-        
+
         public GerenciadorDeRequisicoes(Socket socket) throws IOException {
             this.socket = socket;
             this.clienteId = socket.getRemoteSocketAddress().toString();
