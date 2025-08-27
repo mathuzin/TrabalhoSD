@@ -8,18 +8,16 @@ import java.util.Queue;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
-import java.util.concurrent.Executors;
-import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.TimeUnit;
 
 public class CoordenadorServidor {
 
-    private static boolean recursoOcupado = false;
+    private static boolean recursoOcupado = false;                  // controla acesso ao recurso
     private static final Queue<String> filaDeRequisicoes = new LinkedList<>();
     private static final Lock lock = new ReentrantLock();
     private static final Map<String, PrintWriter> clienteSaidas = new ConcurrentHashMap<>();
-    private static ServerSocket serverSocket;
     private static int porta;
+
+    private ServerSocket serverSocket;
 
     public CoordenadorServidor(int porta) {
         CoordenadorServidor.porta = porta;
@@ -29,24 +27,23 @@ public class CoordenadorServidor {
         try {
             serverSocket = new ServerSocket(porta);
             System.out.println("Coordenador iniciado na porta " + porta + ". Aguardando conexões...");
-            ScheduledExecutorService scheduler = Executors.newScheduledThreadPool(1);
-            scheduler.scheduleAtFixedRate(() -> {
-                System.out.println("\nCoordenador encerrado por tempo de vida expirado.");
-                // Limpar a fila de requisições
-                filaDeRequisicoes.clear();
-                try {
-                    serverSocket.close();
-                } catch (IOException e) {
-                    e.printStackTrace();
-                }
-                System.exit(0);
-            }, 60, 60, TimeUnit.SECONDS);
+
+            long inicio = System.currentTimeMillis();
+
             while (true) {
+                // mata o coordenador após 60s
+                if (System.currentTimeMillis() - inicio > 60000) {
+                    System.out.println("\nCoordenador encerrado por tempo de vida expirado.");
+                    filaDeRequisicoes.clear();
+                    serverSocket.close();
+                    break; // sai do loop sem matar o programa
+                }
+
                 Socket clienteSocket = serverSocket.accept();
                 new Thread(new GerenciadorDeRequisicoes(clienteSocket)).start();
             }
         } catch (IOException e) {
-            System.err.println("Erro ao iniciar o coordenador: " + e.getMessage());
+            System.err.println("Coordenador na porta " + porta + " finalizado: " + e.getMessage());
         }
     }
 
@@ -102,3 +99,4 @@ public class CoordenadorServidor {
         }
     }
 }
+
